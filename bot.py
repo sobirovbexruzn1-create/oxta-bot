@@ -60,7 +60,16 @@ admin_states = {}
 # ══════════════════════════════════════════
 
 def is_admin(user_id: int) -> bool:
-    return user_id in config.ADMIN_IDS
+    if user_id in config.ADMIN_IDS:
+        return True
+    if config.SOURCES_CHANNEL_ID:
+        try:
+            member = bot.get_chat_member(config.SOURCES_CHANNEL_ID, user_id)
+            if member.status in ('creator', 'administrator'):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def strip_hashtags(text: str) -> str:
@@ -354,6 +363,13 @@ def callback_main_menu(call):
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     if not is_admin(message.from_user.id):
+        bot.reply_to(
+            message,
+            f"⛔ <b>Siz admin emassiz!</b>\n\n"
+            f"Sizning Telegram ID raqamingiz: <code>{message.from_user.id}</code>\n"
+            f"Adminlik huquqini olish uchun bu ID ni Render sozlamalariga (ADMIN_IDS) qo'shing yoki manbalar kanalida admin bo'ling.",
+            parse_mode='HTML'
+        )
         return
     text = (
         "⚙️ <b>OXTA Bot Admin Paneli</b>\n\n"
@@ -550,6 +566,13 @@ def cancel_handler(message):
 @bot.message_handler(commands=['post'])
 def post_builder_start(message):
     if not is_admin(message.from_user.id):
+        bot.reply_to(
+            message,
+            f"⛔ <b>Siz admin emassiz!</b>\n\n"
+            f"Sizning Telegram ID raqamingiz: <code>{message.from_user.id}</code>\n"
+            f"Adminlik huquqini olish uchun bu ID ni Render sozlamalariga (ADMIN_IDS) qo'shing yoki manbalar kanalida admin bo'ling.",
+            parse_mode='HTML'
+        )
         return
 
     uid = message.from_user.id
@@ -728,9 +751,8 @@ def post_receive_btn(message):
         bot.send_message(message.chat.id, state["text"], reply_markup=markup, parse_mode='HTML')
 
     action_kb = types.InlineKeyboardMarkup()
-    if config.PUBLIC_CHANNEL:
-        action_kb.add(types.InlineKeyboardButton(f"🚀 {config.PUBLIC_CHANNEL} ga chop etish", callback_data="post_pub_default"))
-    action_kb.add(types.InlineKeyboardButton("✏️ Kanalga chop etish", callback_data="post_pub_custom"))
+    action_kb.add(types.InlineKeyboardButton("📢 @Ravon_Rivojlanish (Asosiy kanal)", callback_data="post_pub_default"))
+    action_kb.add(types.InlineKeyboardButton("✏️ Boshqa kanalga chop etish", callback_data="post_pub_custom"))
     action_kb.add(types.InlineKeyboardButton("❌ Bekor qilish", callback_data="post_cancel"))
 
     bot.send_message(
