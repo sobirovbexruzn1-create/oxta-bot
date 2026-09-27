@@ -4,18 +4,34 @@ import requests
 import config
 
 _cache = None
+_bot = None
 
 # Local fallback file
 LOCAL_FILE = config.MAPPING_FILE
+DB_HEADER = "🤖 <b>[OXTA_BOT_DATABASE]</b>\n<i>Iltimos, bu xabarni o'chirmang! U botning o'chmas ma'lumotlar bazasi hisoblanadi.</i>\n\nOXTA_DB_START:"
+
+
+def init_storage(bot_instance):
+    """Initialize storage with Telegram bot instance for cloud persistence."""
+    global _bot
+    _bot = bot_instance
+    load_mapping()
 
 
 def load_mapping():
-    """Load mapping from JSONBin or local file."""
+    """Load mapping from Telegram pinned DB, JSONBin, or local file."""
     global _cache
     if _cache is not None:
         return _cache
 
-    # 1. Try JSONBin.io
+    # 1. Try Telegram Channel Pinned Message (Permanent & 100% Free Cloud DB)
+    tg_data = _load_from_telegram()
+    if tg_data is not None:
+        _cache = tg_data
+        _save_local(tg_data)
+        return _cache
+
+    # 2. Try JSONBin.io (if configured)
     if config.JSONBIN_API_KEY and config.JSONBIN_BIN_ID:
         try:
             url = f"https://api.jsonbin.io/v3/b/{config.JSONBIN_BIN_ID}/latest"
@@ -29,16 +45,17 @@ def load_mapping():
         except Exception as e:
             print(f"[STORAGE] JSONBin load error: {e}")
 
-    # 2. Fallback to local file
+    # 3. Fallback to local file
     _cache = _load_local()
     return _cache
 
 
 def save_mapping(mapping):
-    """Save mapping to JSONBin and local file."""
+    """Save mapping to local file, Telegram pinned DB, and JSONBin."""
     global _cache
     _cache = mapping
     _save_local(mapping)
+    _save_to_telegram(mapping)
 
     if config.JSONBIN_API_KEY and config.JSONBIN_BIN_ID:
         try:
@@ -50,6 +67,42 @@ def save_mapping(mapping):
             requests.put(url, headers=headers, json=mapping, timeout=5)
         except Exception as e:
             print(f"[STORAGE] JSONBin save error: {e}")
+
+
+def _load_from_telegram():
+    if not _bot or not config.SOURCES_CHANNEL_ID:
+        return None
+    try:
+        chat = _bot.get_chat(config.SOURCES_CHANNEL_ID)
+        pinned = chat.pinned_message
+        if pinned:
+            text = pinned.text or pinned.caption or ""
+            if "OXTA_DB_START:" in text:
+                raw_json = text.split("OXTA_DB_START:")[1].strip()
+                data = json.loads(raw_json)
+                print(f"[STORAGE] Telegram bazasidan {len(data)} ta kalit yuklandi!")
+                return data
+    except Exception as e:
+        print(f"[STORAGE] Telegram yuklash xatoligi: {e}")
+    return None
+
+
+def _save_to_telegram(mapping):
+    if not _bot or not config.SOURCES_CHANNEL_ID:
+        return
+    try:
+        raw_json = json.dumps(mapping, ensure_ascii=False)
+        full_text = DB_HEADER + raw_json
+        chat = _bot.get_chat(config.SOURCES_CHANNEL_ID)
+        pinned = chat.pinned_message
+        if pinned and pinned.text and "OXTA_DB_START:" in pinned.text:
+            _bot.edit_message_text(full_text, config.SOURCES_CHANNEL_ID, pinned.message_id, parse_mode='HTML')
+        else:
+            msg = _bot.send_message(config.SOURCES_CHANNEL_ID, full_text, parse_mode='HTML')
+            _bot.pin_chat_message(config.SOURCES_CHANNEL_ID, msg.message_id, disable_notification=True)
+        print("[STORAGE] Telegram bazasiga muvaffaqiyatli saqlandi!")
+    except Exception as e:
+        print(f"[STORAGE] Telegram saqlash xatoligi: {e}")
 
 
 def invalidate_cache():

@@ -51,6 +51,9 @@ bot = telebot.TeleBot(config.BOT_TOKEN, parse_mode=None)
 import telebot.apihelper
 telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
 
+# Initialize persistent storage with bot for cloud database
+storage.init_storage(bot)
+
 mapping_lock = threading.Lock()
 admin_states = {}
 
@@ -799,6 +802,8 @@ def post_target_chan_received(message):
 def _publish_to_channel(notify_chat_id, uid, channel):
     if uid not in admin_states:
         return
+    if channel == "@RavonRivojlanish":
+        channel = "@Ravon_Rivojlanish"
     state = admin_states[uid]
     try:
         if state.get("photo_id"):
