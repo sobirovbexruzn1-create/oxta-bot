@@ -15,7 +15,7 @@ ADMIN_IDS = [int(x.strip()) for x in _admin_raw.split(",") if x.strip().isdigit(
 SOURCES_CHANNEL_ID = int(os.getenv("SOURCES_CHANNEL_ID", "-1004340745564"))
 
 # Public channel where posts with buttons will be published
-PUBLIC_CHANNEL = os.getenv("PUBLIC_CHANNEL", "@RavonRivojlanish")
+PUBLIC_CHANNEL = os.getenv("PUBLIC_CHANNEL", "@Ravon_Rivojlanish")
 
 # JSONBin.io persistent storage
 JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY", "")
